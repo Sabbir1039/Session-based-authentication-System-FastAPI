@@ -41,3 +41,12 @@ class UserUpdateSchema(BaseModel):
         image: Optional[UploadFile] = Form(None),  # Make image optional
     ):
         return cls(fullname=fullname, email=email, image=image)
+    
+# Schema for password reset request
+class PasswordResetRequestSchema(BaseModel):
+    email: EmailStr
+
+# Schema for password reset
+class PasswordResetConfirmSchema(BaseModel):
+    token: str
+    new_password: str

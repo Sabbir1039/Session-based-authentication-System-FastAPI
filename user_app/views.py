@@ -1,14 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from fastapi.responses import RedirectResponse
-from user_app.schemas import RegisterSchema, LoginSchema, UserUpdateSchema
-from user_app.auth import get_password_hash, verify_password
+from user_app.schemas import (
+    RegisterSchema,
+    LoginSchema,
+    UserUpdateSchema,
+    PasswordResetRequestSchema,
+    PasswordResetConfirmSchema
+    )
+from user_app.auth import get_password_hash, verify_password, generate_reset_token
 from user_app.models import User
 from sqlmodel import select, Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from core_app.database import get_session as db_session
-from core_app.config import templates
-from datetime import datetime
+from core_app.config import templates, conf
+from datetime import datetime, timedelta
 import os
+from fastapi_mail import FastMail, MessageSchema
 
 router = APIRouter()
 
@@ -255,3 +262,64 @@ async def update_profile(
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred during profile update.")
+
+
+# password reset
+# Send password reset email
+@router.post("/password-reset/request")
+async def password_reset_request(
+    request: PasswordResetRequestSchema,
+    session: Session = Depends(db_session)
+    ):
+    
+    email = request.email
+    user_in_db = session.exec(select(User).where(User.email == email)).first()
+    if not user_in_db:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Generate a token and store it with an expiry time
+    reset_token = generate_reset_token()
+    token_expiry = datetime.utcnow() + timedelta(minutes=30)  # Token valid for 30 minutes
+
+    user_in_db.reset_token = reset_token
+    user_in_db.token_expiry = token_expiry
+    
+    session.commit()
+
+    # Send email with reset link (token in query parameters)
+    reset_url = f"http://localhost:8000/password-reset/confirm?token={reset_token}"
+    message = MessageSchema(
+        subject="Password Reset Request",
+        recipients=[email],
+        body=f"Click the following link to reset your password: {reset_url}",
+        subtype="plain"
+    )
+
+    fm = FastMail(conf)
+    await fm.send_message(message)
+
+    return {"msg": "Password reset email sent"}
+
+# Verify the token and allow password reset
+@router.post("/password-reset/confirm")
+async def password_reset_confirm(
+    credentials: PasswordResetConfirmSchema,
+    session: Session = Depends(db_session)
+    ):
+    
+    # Find the user with the matching token
+    user_in_db = session.exec(select(User).where(User.reset_token == credentials.token)).first()
+    
+    if not user_in_db or datetime.utcnow() > user_in_db.token_expiry:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+    
+    # Update password
+    user_in_db.hashed_password = get_password_hash(credentials.new_password)
+    
+    # Clear reset token
+    user_in_db.reset_token = None
+    user_in_db.token_expiry = None
+    
+    session.commit()
+
+    return {"msg": "Password successfully reset"}
