@@ -1,0 +1,12 @@
+{% extends "core_app/base.html" %}
+
+{% block title %}Home Page{% endblock %}
+
+{% block content %}
+
+<h1>Welcome to the Home Page</h1>
+<p>This is a simple session-based authentication app.</p>
+
+<p>Current User: {{ user if user else 'Guest' }}</p>
+
+{% endblock %}

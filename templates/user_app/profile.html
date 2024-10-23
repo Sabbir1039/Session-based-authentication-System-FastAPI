@@ -1,0 +1,32 @@
+{% extends "core_app/base.html" %}
+
+{% block title %}{{ user.username }}'s Profile{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header text-center">
+                    <h2>{{ user.username }}'s Profile</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6 text-center">
+                            <h3>Name: {{ user.username }}</h3>
+                            <p>Email: {{ user.email }}</p>
+                        </div>
+                        <div class="col-md-6 text-center">
+                            <img  class="img-fluid rounded-circle"
+                            src="{{ url_for('static', path=user.image) }}"
+                            alt="{{ user.username }}'s Profile Picture"
+                            style="max-width: 150px;">
+                        </div>
+                    </div>
+                </div>
+                <a class="btn btn-sm btn-primary" href="{{ url_for('update_profile_page') }}">Update Profile</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
